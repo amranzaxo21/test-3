@@ -1,0 +1,38 @@
+name: Remote.it RDP Access
+
+on:
+  workflow_dispatch:
+
+jobs:
+  remoteit-rdp:
+    runs-on: windows-latest
+
+    steps:
+    - name: Download Remote.it Agent Installer
+      run: |
+        Invoke-WebRequest "https://downloads.remote.it/agent/windows/remoteit-agent.msi" -OutFile "remoteit-agent.msi"
+      shell: powershell
+
+    - name: Install Remote.it Agent
+      run: msiexec /i remoteit-agent.msi /quiet
+      shell: powershell
+
+    - name: Configure Remote.it RDP Access
+      run: |
+        & "C:\Program Files (x86)\remoteit\remoteit.exe" login --apikey $Env:REMOTEIT_KEY
+        & "C:\Program Files (x86)\remoteit\remoteit.exe" add --name "GitHub-RDP" --port 3389
+      env:
+        REMOTEIT_KEY: ${{ secrets.REMOTEIT_KEY }}
+      shell: powershell
+
+    - name: Enable RDP on Windows
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+      shell: powershell
+
+    - name: Done
+      run: Write-Host "✅ Remote.it RDP is ready. Open Remote.it app, find 'GitHub-RDP', and connect."
+      shell: powershell
